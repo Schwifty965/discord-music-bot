@@ -9,7 +9,7 @@ import yt_dlp
 from google import genai
 import static_ffmpeg
 
-# โหลด FFmpeg แบบพกพาเข้าสู่ระบบ PATH ของ Render
+# โหลด FFmpeg พกพา
 static_ffmpeg.add_paths()
 
 # โหลด Environment Variables
@@ -22,7 +22,7 @@ if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN not found in .env or Environment Variables")
 
 # ---------------------------------------------------------
-# 1. Web Server สำหรับตอบ Health Check ของ Render (แก้ปัญหา No open ports detected)
+# 1. Web Server สำหรับตอบ Health Check ของ Render
 # ---------------------------------------------------------
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -32,15 +32,13 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running smoothly on Render!")
 
     def log_message(self, format, *args):
-        return  # ปิด Log ของ HTTP Server ไม่ให้รกหน้าจอ
+        return
 
 def run_health_check_server():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    print(f"[HealthCheck] Web Server started on port {port}")
     server.serve_forever()
 
-# รัน HTTP Server แยกใน Background Thread ทันทีที่รันไฟล์นี้
 threading.Thread(target=run_health_check_server, daemon=True).start()
 
 # ---------------------------------------------------------
@@ -102,13 +100,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
 # ---------------------------------------------------------
-# 4. อีเวนต์และคำสั่งของบอต
+# 4. อีเวนต์และคำสั่งของบอต (เพิ่มระบบดักจับ Debug)
 # ---------------------------------------------------------
 @bot.event
 async def on_ready():
     print(f"[Bot] Logged in as {bot.user.name} ({bot.user.id})")
-    print("[VoiceMonitor] Loaded 1 log configuration(s).")
     print("[Bot] Ready for Render deployment!")
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    # ดักพิมพ์ลง Logs เมื่อมีคนส่งข้อความหาบอต
+    print(f"[DEBUG MSG] ได้รับคำสั่ง: '{message.content}' จาก {message.author} ในช่อง #{message.channel}")
+    await bot.process_commands(message)
 
 @bot.command(name="play", help="สั่งเล่นเพลงจาก YouTube")
 async def play(ctx, *, url: str):
