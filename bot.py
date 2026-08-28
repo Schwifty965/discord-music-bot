@@ -7,6 +7,10 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import yt_dlp
 from google import genai
+import static_ffmpeg
+
+# โหลด FFmpeg แบบพกพาเข้าสู่ระบบ PATH ของ Render
+static_ffmpeg.add_paths()
 
 # โหลด Environment Variables
 load_dotenv()
