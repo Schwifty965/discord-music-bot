@@ -9,7 +9,7 @@ import yt_dlp
 from google import genai
 import static_ffmpeg
 
-# โหลด FFmpeg แบบพกพาสำหรับ Render (ป้องกันปัญหาเล่นเพลงแล้วไม่มีเสียงหรือ Error FFmpeg)
+# โหลด FFmpeg แบบพกพาสำหรับ Render (ป้องกันปัญหาเล่นเพลงแล้วไม่มีเสียง)
 static_ffmpeg.add_paths()
 
 # โหลด Environment Variables
@@ -22,7 +22,7 @@ if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN not found in .env or Environment Variables")
 
 # ---------------------------------------------------------
-# 1. Web Server สำหรับตอบ Health Check ของ Render (แก้ปัญหา No open ports detected)
+# 1. Web Server สำหรับตอบ Health Check ของ Render
 # ---------------------------------------------------------
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -32,7 +32,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running smoothly on Render!")
 
     def log_message(self, format, *args):
-        return  # ปิด Log ของ HTTP Server ไม่ให้รกหน้าจอ
+        return  # ปิด Log ของ HTTP Server
 
 def run_health_check_server():
     port = int(os.environ.get("PORT", 10000))
@@ -62,9 +62,8 @@ if GEMINI_API_KEY:
         print(f"[Gemini] Initialization error: {e}")
 
 # ---------------------------------------------------------
-# 3. ตั้งค่าระบบเพลง (yt-dlp & FFmpeg & Cookies)
+# 3. ตั้งค่าระบบเพลง (yt-dlp & FFmpeg & Cookies & Client Spoofing)
 # ---------------------------------------------------------
-# ดึง Cookie จาก Environment Variable มาสร้างไฟล์ cookies.txt อัตโนมัติ
 yt_cookies = os.getenv("YOUTUBE_COOKIES")
 if yt_cookies:
     with open("cookies.txt", "w", encoding="utf-8") as f:
@@ -83,6 +82,12 @@ YTDL_OPTIONS = {
     'default_search': 'auto',
     'source_address': '0.0.0.0',
     'cookiefile': 'cookies.txt' if os.path.exists("cookies.txt") else None,
+    # ปลอมตัวเป็น Client ของ Android/iOS เพื่อข้ามระบบตรวจจับบอตของ YouTube บน Cloud IP
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['android', 'ios', 'mweb']
+        }
+    }
 }
 
 FFMPEG_OPTIONS = {
