@@ -7,6 +7,10 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import yt_dlp
 from google import genai
+import static_ffmpeg
+
+# โหลด FFmpeg แบบพกพาสำหรับ Render (ป้องกันปัญหาเล่นเพลงแล้วไม่มีเสียงหรือ Error FFmpeg)
+static_ffmpeg.add_paths()
 
 # โหลด Environment Variables
 load_dotenv()
@@ -46,7 +50,8 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+# ตั้งให้รองรับทั้ง Prefix 'mo!' และ '!'
+bot = commands.Bot(command_prefix=["mo!", "!"], intents=intents)
 
 gemini_client = None
 if GEMINI_API_KEY:
@@ -103,10 +108,28 @@ class YTDLSource(discord.PCMVolumeTransformer):
 @bot.event
 async def on_ready():
     print(f"[Bot] Logged in as {bot.user.name} ({bot.user.id})")
-    print("[VoiceMonitor] Loaded 1 log configuration(s).")
     print("[Bot] Ready for Render deployment!")
 
-@bot.command(name="play", help="สั่งเล่นเพลงจาก YouTube")
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    await bot.process_commands(message)
+
+@bot.command(name="join", aliases=["j"], help="ดึงบอตเข้าห้องเสียง")
+async def join(ctx):
+    if not ctx.author.voice:
+        await ctx.send("❌ คุณต้องอยู่ในห้องเสียง (Voice Channel) ก่อนครับ!")
+        return
+    channel = ctx.author.voice.channel
+    if ctx.voice_client is None:
+        await channel.connect()
+        await ctx.send(f"🔊 เข้าห้อง **{channel.name}** เรียบร้อยครับ!")
+    else:
+        await ctx.voice_client.move_to(channel)
+        await ctx.send(f"🔊 ย้ายมาห้อง **{channel.name}** เรียบร้อยครับ!")
+
+@bot.command(name="play", aliases=["p"], help="สั่งเล่นเพลงจาก YouTube")
 async def play(ctx, *, url: str):
     if not ctx.author.voice:
         await ctx.send("❌ คุณต้องอยู่ในห้องเสียง (Voice Channel) ก่อนครับ!")
@@ -135,10 +158,10 @@ async def pause(ctx):
 @bot.command(name="resume", help="เล่นเพลงต่อ")
 async def resume(ctx):
     if ctx.voice_client and ctx.voice_client.is_paused():
-        ctx.voice_client.resume()
+        ctx.resume()
         await ctx.send("▶️ เล่นเพลงต่อ")
 
-@bot.command(name="stop", help="หยุดเล่นและออกจากห้องเสียง")
+@bot.command(name="stop", aliases=["leave"], help="หยุดเล่นและออกจากห้องเสียง")
 async def stop(ctx):
     if ctx.voice_client:
         await ctx.voice_client.disconnect()
@@ -153,7 +176,7 @@ async def chat(ctx, *, prompt: str):
     async with ctx.typing():
         try:
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=prompt
             )
             await ctx.send(response.text)
