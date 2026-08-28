@@ -9,7 +9,7 @@ import yt_dlp
 from google import genai
 import static_ffmpeg
 
-# โหลด FFmpeg แบบพกพาสำหรับ Render (ป้องกันปัญหาเล่นเพลงแล้วไม่มีเสียง)
+# โหลด FFmpeg แบบพกพาสำหรับ Render
 static_ffmpeg.add_paths()
 
 # โหลด Environment Variables
@@ -32,7 +32,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running smoothly on Render!")
 
     def log_message(self, format, *args):
-        return  # ปิด Log ของ HTTP Server
+        return
 
 def run_health_check_server():
     port = int(os.environ.get("PORT", 10000))
@@ -40,7 +40,6 @@ def run_health_check_server():
     print(f"[HealthCheck] Web Server started on port {port}")
     server.serve_forever()
 
-# รัน HTTP Server แยกใน Background Thread ทันทีที่รันไฟล์นี้
 threading.Thread(target=run_health_check_server, daemon=True).start()
 
 # ---------------------------------------------------------
@@ -50,7 +49,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 
-# ตั้งให้รองรับทั้ง Prefix 'mo!' และ '!'
 bot = commands.Bot(command_prefix=["mo!", "!"], intents=intents)
 
 gemini_client = None
@@ -62,13 +60,18 @@ if GEMINI_API_KEY:
         print(f"[Gemini] Initialization error: {e}")
 
 # ---------------------------------------------------------
-# 3. ตั้งค่าระบบเพลง (yt-dlp & FFmpeg & Cookies & Client Spoofing)
+# 3. ตั้งค่าระบบเพลง (TV Embedded Spoofing Bypass)
 # ---------------------------------------------------------
-yt_cookies = os.getenv("YOUTUBE_COOKIES")
-if yt_cookies:
-    with open("cookies.txt", "w", encoding="utf-8") as f:
-        f.write(yt_cookies)
-    print("[YouTube] Loaded cookies.txt successfully.")
+RENDER_SECRET_COOKIE = "/etc/secrets/cookies.txt"
+LOCAL_COOKIE = "cookies.txt"
+
+cookie_path = None
+if os.path.exists(RENDER_SECRET_COOKIE) and os.path.getsize(RENDER_SECRET_COOKIE) > 0:
+    cookie_path = RENDER_SECRET_COOKIE
+    print(f"[YouTube] Using Secret Cookie at {RENDER_SECRET_COOKIE}")
+elif os.path.exists(LOCAL_COOKIE) and os.path.getsize(LOCAL_COOKIE) > 0:
+    cookie_path = LOCAL_COOKIE
+    print(f"[YouTube] Using Local Cookie at {LOCAL_COOKIE}")
 
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -81,11 +84,12 @@ YTDL_OPTIONS = {
     'no_warnings': True,
     'default_search': 'auto',
     'source_address': '0.0.0.0',
-    'cookiefile': 'cookies.txt' if os.path.exists("cookies.txt") else None,
-    # ปลอมตัวเป็น Client ของ Android/iOS เพื่อข้ามระบบตรวจจับบอตของ YouTube บน Cloud IP
+    'cookiefile': cookie_path,
+    # ใช้ tv_embedded และ web_creator เพื่อปลอมตัวเป็นแอปบน TV ข้ามการดักจับบอตบน Cloud
     'extractor_args': {
         'youtube': {
-            'player_client': ['android', 'ios', 'mweb']
+            'player_client': ['tv_embedded', 'web_creator', 'mweb'],
+            'player_skip': ['configs', 'webpage']
         }
     }
 }
