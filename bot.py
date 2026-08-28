@@ -62,8 +62,15 @@ if GEMINI_API_KEY:
         print(f"[Gemini] Initialization error: {e}")
 
 # ---------------------------------------------------------
-# 3. ตั้งค่าระบบเพลง (yt-dlp & FFmpeg)
+# 3. ตั้งค่าระบบเพลง (yt-dlp & FFmpeg & Cookies)
 # ---------------------------------------------------------
+# ดึง Cookie จาก Environment Variable มาสร้างไฟล์ cookies.txt อัตโนมัติ
+yt_cookies = os.getenv("YOUTUBE_COOKIES")
+if yt_cookies:
+    with open("cookies.txt", "w", encoding="utf-8") as f:
+        f.write(yt_cookies)
+    print("[YouTube] Loaded cookies.txt successfully.")
+
 YTDL_OPTIONS = {
     'format': 'bestaudio/best',
     'extractflat': False,
@@ -75,6 +82,7 @@ YTDL_OPTIONS = {
     'no_warnings': True,
     'default_search': 'auto',
     'source_address': '0.0.0.0',
+    'cookiefile': 'cookies.txt' if os.path.exists("cookies.txt") else None,
 }
 
 FFMPEG_OPTIONS = {
