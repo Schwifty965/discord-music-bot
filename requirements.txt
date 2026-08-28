@@ -1,6 +1,0 @@
-discord.py
-yt-dlp
-google-genai
-python-dotenv
-PyNaCl
-static-ffmpeg
