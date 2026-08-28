@@ -1,7 +1,7 @@
 discord.py[voice]
 davey
 PyNaCl
-yt-dlp
+yt-dlp>=2025.1.1
 google-genai
 python-dotenv
 static-ffmpeg
